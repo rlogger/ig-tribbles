@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist database across container restarts
+      - bot_data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/follower_data.db
+
+volumes:
+  bot_data:

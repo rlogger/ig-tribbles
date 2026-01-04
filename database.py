@@ -1,10 +1,12 @@
 import aiosqlite
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-DATABASE_PATH = Path(__file__).parent / "follower_data.db"
+# Use environment variable or default to local path
+DATABASE_PATH = Path(os.getenv("DATABASE_PATH", Path(__file__).parent / "follower_data.db"))
 
 
 async def init_db():

@@ -4,6 +4,8 @@ A Discord bot that helps you track your Instagram followers and following over t
 
 ## Features
 
+- **DM Support**: Chat directly with the bot in DMs - just drop your CSV file!
+- **Auto-Detection**: Simply upload a CSV and the bot automatically processes it
 - **CSV Upload**: Upload your Instagram followers/following CSV exports
 - **Change Tracking**: See who followed/unfollowed you between uploads
 - **Visualizations**: Beautiful plots showing trends, growth rates, and relationship breakdowns
@@ -70,6 +72,15 @@ python bot.py
 5. Select format: **CSV**
 6. Download and upload the CSV file to Discord
 
+## Quick Start (DM the Bot)
+
+Once the bot is running, you can DM it directly:
+
+1. Find the bot and click to open a DM
+2. Say `hi` or `help` to see what it can do
+3. **Just drop your CSV file** - the bot automatically processes it!
+4. Type `stats`, `changes`, or `history` for quick info
+
 ## Project Structure
 
 ```
@@ -79,9 +90,31 @@ ig-discord/
 ├── csv_parser.py    # CSV parsing utilities
 ├── plotting.py      # Matplotlib visualizations
 ├── requirements.txt # Python dependencies
+├── Dockerfile       # Container configuration
+├── docker-compose.yml # Local Docker deployment
+├── DEPLOY_GCP.md    # GCP deployment guide
 ├── .env.example     # Environment template
 └── README.md        # This file
 ```
+
+## Deployment
+
+### Local with Docker
+
+```bash
+# Build and run
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+```
+
+### Google Cloud Platform
+
+See [DEPLOY_GCP.md](DEPLOY_GCP.md) for detailed instructions on deploying to:
+- Google Compute Engine (recommended, free tier eligible)
+- Cloud Run (managed, always-on)
+- Google Kubernetes Engine (for complex setups)
 
 ## Data Storage
 
