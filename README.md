@@ -123,3 +123,22 @@ All data is stored locally in `follower_data.db` (SQLite). Each user's data is i
 ## License
 
 MIT
+
+## Aliases
+```
+bot       # Run the Discord bot
+dcup      # docker-compose up -d
+dcdown    # docker-compose down
+dclogs    # docker-compose logs -f
+```
+
+## usage
+```
+# Enter the nix shell
+nix-shell
+
+# Setup and run
+cp .env.example .env
+# Add your DISCORD_TOKEN
+bot   # or: python bot.py
+```
