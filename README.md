@@ -1,4 +1,4 @@
-# Instagram Follower Tracker Discord Bot
+# Instagram Ratio Balancer
 
 A Discord bot that helps you track your Instagram followers and following over time using CSV exports.
 
