@@ -13,7 +13,13 @@ from database import (
     get_snapshot_records,
     get_latest_snapshot,
     get_all_snapshots_for_plotting,
-    compare_snapshots
+    compare_snapshots,
+    add_requested,
+    remove_requested,
+    get_requested,
+    get_requested_count,
+    clear_requested,
+    check_requested_accepted
 )
 from csv_parser import parse_instagram_csv, parse_filename, analyze_follow_status
 from plotting import (
@@ -948,6 +954,228 @@ async def demo(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ Error loading demo: {str(e)}")
 
 
+# ============================================================================
+# REQUESTED FOLLOWS TRACKING
+# ============================================================================
+
+@bot.tree.command(name="requested", description="View your pending follow requests list")
+@app_commands.dm_permission(True)
+async def requested_list(interaction: discord.Interaction):
+    """Show the list of people you've requested to follow."""
+    await interaction.response.defer(thinking=True)
+
+    guild_id = get_guild_id(interaction)
+    requested = await get_requested(interaction.user.id, guild_id, limit=50)
+    total = await get_requested_count(interaction.user.id, guild_id)
+
+    if not requested:
+        embed = discord.Embed(
+            title="📋 Pending Follow Requests",
+            description="No pending requests tracked.\n\nUse `/requested_add` to add usernames.",
+            color=discord.Color.light_gray()
+        )
+        await interaction.followup.send(embed=embed)
+        return
+
+    embed = discord.Embed(
+        title="📋 Pending Follow Requests",
+        description=f"You have **{total}** pending request(s)",
+        color=discord.Color.orange()
+    )
+
+    # Format the list
+    user_list = []
+    for i, r in enumerate(requested[:50], 1):
+        user_list.append(f"{i}. @{r['username']}")
+
+    # Split into chunks
+    chunk_size = 15
+    for i in range(0, len(user_list), chunk_size):
+        chunk = user_list[i:i + chunk_size]
+        field_name = f"Users {i + 1}-{min(i + chunk_size, len(user_list))}" if len(user_list) > chunk_size else "Users"
+        embed.add_field(name=field_name, value="\n".join(chunk), inline=True)
+
+    embed.set_footer(text="Use /requested_add or /requested_remove to manage")
+
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="requested_add", description="Add usernames to your pending requests list")
+@app_commands.describe(usernames="Usernames separated by newlines, commas, or spaces")
+@app_commands.dm_permission(True)
+async def requested_add_cmd(interaction: discord.Interaction, usernames: str):
+    """Add usernames to the requested list."""
+    await interaction.response.defer(thinking=True)
+
+    # Parse usernames - split by newlines, commas, or spaces
+    import re
+    username_list = re.split(r'[\n,\s]+', usernames)
+    username_list = [u.strip().lstrip('@') for u in username_list if u.strip()]
+
+    if not username_list:
+        await interaction.followup.send("❌ No valid usernames provided.")
+        return
+
+    guild_id = get_guild_id(interaction)
+    added, skipped = await add_requested(interaction.user.id, guild_id, username_list)
+
+    embed = discord.Embed(
+        title="📝 Added to Requested List",
+        color=discord.Color.green()
+    )
+
+    embed.add_field(name="✅ Added", value=str(added), inline=True)
+    if skipped > 0:
+        embed.add_field(name="⏭️ Already existed", value=str(skipped), inline=True)
+
+    total = await get_requested_count(interaction.user.id, guild_id)
+    embed.add_field(name="📊 Total", value=str(total), inline=True)
+
+    if added > 0:
+        added_names = username_list[:10]
+        embed.add_field(
+            name="Added Users",
+            value="\n".join(f"• @{u}" for u in added_names) + (f"\n... +{len(username_list) - 10} more" if len(username_list) > 10 else ""),
+            inline=False
+        )
+
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="requested_remove", description="Remove usernames from your pending requests list")
+@app_commands.describe(usernames="Usernames to remove (separated by newlines, commas, or spaces)")
+@app_commands.dm_permission(True)
+async def requested_remove_cmd(interaction: discord.Interaction, usernames: str):
+    """Remove usernames from the requested list."""
+    await interaction.response.defer(thinking=True)
+
+    import re
+    username_list = re.split(r'[\n,\s]+', usernames)
+    username_list = [u.strip().lstrip('@') for u in username_list if u.strip()]
+
+    if not username_list:
+        await interaction.followup.send("❌ No valid usernames provided.")
+        return
+
+    guild_id = get_guild_id(interaction)
+    removed = await remove_requested(interaction.user.id, guild_id, username_list)
+
+    total = await get_requested_count(interaction.user.id, guild_id)
+
+    embed = discord.Embed(
+        title="🗑️ Removed from Requested List",
+        color=discord.Color.red() if removed > 0 else discord.Color.light_gray()
+    )
+
+    embed.add_field(name="❌ Removed", value=str(removed), inline=True)
+    embed.add_field(name="📊 Remaining", value=str(total), inline=True)
+
+    await interaction.followup.send(embed=embed)
+
+
+@bot.tree.command(name="requested_clear", description="Clear your entire pending requests list")
+@app_commands.dm_permission(True)
+async def requested_clear_cmd(interaction: discord.Interaction):
+    """Clear all requested usernames."""
+    guild_id = get_guild_id(interaction)
+    count = await get_requested_count(interaction.user.id, guild_id)
+
+    if count == 0:
+        await interaction.response.send_message("📋 Your requested list is already empty.")
+        return
+
+    # Create confirmation button
+    class ConfirmView(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=30)
+            self.confirmed = False
+
+        @discord.ui.button(label=f"Yes, clear {count} entries", style=discord.ButtonStyle.danger)
+        async def confirm(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+            if button_interaction.user.id != interaction.user.id:
+                return
+
+            self.confirmed = True
+            cleared = await clear_requested(interaction.user.id, guild_id)
+
+            embed = discord.Embed(
+                title="🗑️ Requested List Cleared",
+                description=f"Removed **{cleared}** entries.",
+                color=discord.Color.red()
+            )
+            await button_interaction.response.edit_message(embed=embed, view=None)
+            self.stop()
+
+        @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+        async def cancel(self, button_interaction: discord.Interaction, button: discord.ui.Button):
+            if button_interaction.user.id != interaction.user.id:
+                return
+
+            embed = discord.Embed(
+                title="❌ Cancelled",
+                description="Your requested list was not cleared.",
+                color=discord.Color.light_gray()
+            )
+            await button_interaction.response.edit_message(embed=embed, view=None)
+            self.stop()
+
+    view = ConfirmView()
+
+    embed = discord.Embed(
+        title="⚠️ Confirm Clear",
+        description=f"Are you sure you want to clear **{count}** entries from your requested list?",
+        color=discord.Color.orange()
+    )
+
+    await interaction.response.send_message(embed=embed, view=view)
+
+
+@bot.tree.command(name="requested_check", description="Check which requested users have accepted your follow")
+@app_commands.dm_permission(True)
+async def requested_check_cmd(interaction: discord.Interaction):
+    """Check if any requested users have accepted and now follow you back."""
+    await interaction.response.defer(thinking=True)
+
+    guild_id = get_guild_id(interaction)
+
+    # Get latest followers snapshot
+    latest = await get_latest_snapshot(interaction.user.id, guild_id, "followers")
+
+    if not latest:
+        await interaction.followup.send(
+            "❌ No follower data found! Upload your followers CSV first using `/upload`"
+        )
+        return
+
+    records = await get_snapshot_records(latest['id'])
+    accepted = await check_requested_accepted(interaction.user.id, guild_id, records)
+
+    if not accepted:
+        embed = discord.Embed(
+            title="📋 Requested Check",
+            description="None of your requested users appear in your followers list yet.",
+            color=discord.Color.light_gray()
+        )
+        embed.set_footer(text="Upload a new followers CSV to check again")
+        await interaction.followup.send(embed=embed)
+        return
+
+    embed = discord.Embed(
+        title="🎉 Accepted Follow Requests!",
+        description=f"**{len(accepted)}** user(s) from your requested list now follow you!",
+        color=discord.Color.green()
+    )
+
+    accepted_list = "\n".join(f"• @{u}" for u in accepted[:20])
+    if len(accepted) > 20:
+        accepted_list += f"\n... +{len(accepted) - 20} more"
+
+    embed.add_field(name="Now Following You", value=accepted_list, inline=False)
+    embed.set_footer(text="Use /requested_remove to remove them from your list")
+
+    await interaction.followup.send(embed=embed)
+
+
 @bot.tree.command(name="help", description="Show all available commands")
 @app_commands.dm_permission(True)
 async def help_command(interaction: discord.Interaction):
@@ -959,26 +1187,38 @@ async def help_command(interaction: discord.Interaction):
     )
 
     commands_list = [
-        ("📤 /upload", "Upload your Instagram CSV file (followers or following)"),
-        ("📊 /stats", "View your comprehensive dashboard with all statistics"),
-        ("📈 /trend", "See your follower count trend over time"),
-        ("📉 /growth", "View growth rate between uploads"),
-        ("🔄 /changes", "See detailed changes from your last upload"),
-        ("👀 /nonfollowers", "See people following you that you don't follow back"),
-        ("🥧 /breakdown", "View pie chart of follow relationships"),
-        ("📜 /history", "View your upload history"),
-        ("🔍 /search", "Search for a specific username"),
-        ("🎉 /demo", "Load sample data to try the bot"),
+        ("📤 /upload", "Upload your Instagram CSV file"),
+        ("📊 /stats", "View your dashboard"),
+        ("📈 /trend", "Follower count trend"),
+        ("📉 /growth", "Growth rate between uploads"),
+        ("🔄 /changes", "See who followed/unfollowed"),
+        ("👀 /nonfollowers", "Fans you don't follow back"),
+        ("🥧 /breakdown", "Pie chart of relationships"),
+        ("📜 /history", "Upload history"),
+        ("🔍 /search", "Search for a username"),
+        ("🎉 /demo", "Load sample data"),
     ]
 
     for cmd, desc in commands_list:
-        embed.add_field(name=cmd, value=desc, inline=False)
+        embed.add_field(name=cmd, value=desc, inline=True)
+
+    embed.add_field(
+        name="📋 Requested Tracking",
+        value=(
+            "`/requested` - View pending requests\n"
+            "`/requested_add` - Add usernames\n"
+            "`/requested_remove` - Remove usernames\n"
+            "`/requested_check` - Check who accepted\n"
+            "`/requested_clear` - Clear all"
+        ),
+        inline=False
+    )
 
     embed.add_field(
         name="💬 DM Commands",
         value=(
-            "You can also DM me directly!\n"
-            "• Just drop a CSV file\n"
+            "DM me directly!\n"
+            "• Drop a CSV file\n"
             "• Type `stats`, `changes`, `history`"
         ),
         inline=False

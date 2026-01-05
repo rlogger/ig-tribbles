@@ -56,6 +56,24 @@ async def init_db():
             ON snapshots(user_id, guild_id)
         """)
 
+        # Table for tracking pending follow requests
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS requested (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                guild_id INTEGER NOT NULL,
+                username TEXT NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                notes TEXT,
+                UNIQUE(user_id, guild_id, username)
+            )
+        """)
+
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_requested_user
+            ON requested(user_id, guild_id)
+        """)
+
         await db.commit()
 
 
@@ -199,3 +217,150 @@ async def compare_snapshots(old_snapshot_id: int, new_snapshot_id: int) -> dict:
         "new_total": len(new_records),
         "net_change": len(new_records) - len(old_records)
     }
+
+
+# ============================================================================
+# REQUESTED FOLLOWS TRACKING
+# ============================================================================
+
+async def add_requested(
+    user_id: int,
+    guild_id: int,
+    usernames: list[str],
+    notes: str = None
+) -> tuple[int, int]:
+    """
+    Add usernames to the requested list.
+
+    Returns:
+        tuple: (added_count, skipped_count)
+    """
+    added = 0
+    skipped = 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for username in usernames:
+            username = username.strip().lstrip('@').lower()
+            if not username:
+                continue
+
+            try:
+                await db.execute(
+                    """
+                    INSERT INTO requested (user_id, guild_id, username, notes)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (user_id, guild_id, username, notes)
+                )
+                added += 1
+            except aiosqlite.IntegrityError:
+                # Already exists
+                skipped += 1
+
+        await db.commit()
+
+    return added, skipped
+
+
+async def remove_requested(
+    user_id: int,
+    guild_id: int,
+    usernames: list[str]
+) -> int:
+    """
+    Remove usernames from the requested list.
+
+    Returns:
+        Number of removed entries
+    """
+    removed = 0
+
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        for username in usernames:
+            username = username.strip().lstrip('@').lower()
+            if not username:
+                continue
+
+            cursor = await db.execute(
+                """
+                DELETE FROM requested
+                WHERE user_id = ? AND guild_id = ? AND username = ?
+                """,
+                (user_id, guild_id, username)
+            )
+            removed += cursor.rowcount
+
+        await db.commit()
+
+    return removed
+
+
+async def get_requested(
+    user_id: int,
+    guild_id: int,
+    limit: int = 100
+) -> list[dict]:
+    """Get all requested usernames for a user."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """
+            SELECT * FROM requested
+            WHERE user_id = ? AND guild_id = ?
+            ORDER BY added_at DESC
+            LIMIT ?
+            """,
+            (user_id, guild_id, limit)
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+async def get_requested_count(user_id: int, guild_id: int) -> int:
+    """Get count of requested usernames."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """
+            SELECT COUNT(*) FROM requested
+            WHERE user_id = ? AND guild_id = ?
+            """,
+            (user_id, guild_id)
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+
+
+async def clear_requested(user_id: int, guild_id: int) -> int:
+    """Clear all requested usernames for a user."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(
+            """
+            DELETE FROM requested
+            WHERE user_id = ? AND guild_id = ?
+            """,
+            (user_id, guild_id)
+        )
+        await db.commit()
+        return cursor.rowcount
+
+
+async def check_requested_accepted(
+    user_id: int,
+    guild_id: int,
+    followers_records: list[dict]
+) -> list[str]:
+    """
+    Check which requested users have accepted (now in followers list).
+
+    Returns:
+        List of usernames that accepted the follow request
+    """
+    requested = await get_requested(user_id, guild_id, limit=1000)
+    requested_usernames = {r['username'].lower() for r in requested}
+
+    follower_usernames = {r['username'].lower() for r in followers_records}
+
+    # Find requested users who are now followers
+    accepted = requested_usernames & follower_usernames
+
+    return list(accepted)
