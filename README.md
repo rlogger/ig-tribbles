@@ -4,7 +4,7 @@ A Discord bot that helps you track your Instagram followers and following over t
 
 ## Features
 
-- **DM Support**: Chat directly with the bot in DMs - just drop your CSV file!
+- **DM Support**: Chat directly with the bot in DMs
 - **Auto-Detection**: Simply upload a CSV and the bot automatically processes it
 - **CSV Upload**: Upload your Instagram followers/following CSV exports
 - **Change Tracking**: See who followed/unfollowed you between uploads
