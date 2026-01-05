@@ -113,13 +113,6 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-### GCP
-
-See [DEPLOY_GCP.md](DEPLOY_GCP.md) for:
-- Google Compute Engine (free tier)
-- Cloud Run
-- GKE
-
 ## Project Structure
 
 ```
