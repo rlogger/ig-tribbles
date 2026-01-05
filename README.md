@@ -1,146 +1,139 @@
-# IG-tribbles (dribbles) 
+# IG-tribbles (dribbles)
 
-A Discord bot that tracks your Instagram followers and following over time using CSV exports.
+A Discord bot to track your Instagram followers, see who unfollowed you, and manage pending follow requests.
 
 ## Features
 
-- DM support and auto-detection of CSV uploads
-- Track who followed/unfollowed you between uploads
-- Visualizations of trends, growth rates, and relationships
-- Search for specific users in your data
+- **Drop & Go**: Just drop your CSV file in DMs - no commands needed
+- **Change Tracking**: See who followed/unfollowed between uploads
+- **Visualizations**: Trend charts, pie charts, growth rates
+- **Requested Tracking**: Keep track of pending follow requests
+- **Search**: Find specific users in your data
+
+## Quick Start
+
+```bash
+# Using nix (recommended)
+nix-shell
+bot
+
+# Or manually
+pip install -r requirements.txt
+cp .env.example .env  # Add your DISCORD_TOKEN
+python bot.py
+```
 
 ## Commands
 
+### Follower Analysis
 | Command | Description |
 |---------|-------------|
-| `/upload` | Upload your Instagram CSV file |
-| `/stats` | View your dashboard |
-| `/trend` | See follower count trend |
-| `/growth` | View growth rate between uploads |
-| `/changes` | See changes from last upload |
-| `/nonfollowers` | See people you don't follow back |
-| `/breakdown` | View pie chart of relationships |
-| `/history` | View upload history |
-| `/search` | Search for a username |
+| `/upload` | Upload followers/following CSV |
+| `/stats` | Dashboard with all stats |
+| `/changes` | Who followed/unfollowed |
+| `/trend` | Follower count over time |
+| `/growth` | Growth rate between uploads |
+| `/breakdown` | Pie chart of relationships |
+| `/nonfollowers` | Fans you don't follow back |
+| `/search` | Find a username |
+| `/history` | Past uploads |
+| `/demo` | Load sample data |
+
+### Requested Tracking
+| Command | Description |
+|---------|-------------|
+| `/requested` | View pending follow requests |
+| `/requested_add` | Add usernames (comma/space/newline separated) |
+| `/requested_remove` | Remove usernames |
+| `/requested_check` | Check who accepted (compare with followers) |
+| `/requested_clear` | Clear entire list |
+
+### DM Commands
+Just message the bot directly:
+- Drop a CSV file (auto-processed)
+- `stats` / `changes` / `history`
+- `hi` or `help` for instructions
 
 ## Setup
 
 ### 1. Create Discord Bot
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create new application → Add Bot → Copy token
-3. Enable "Message Content Intent"
+1. [Discord Developer Portal](https://discord.com/developers/applications) → New Application
+2. Bot → Add Bot → Copy token
+3. Enable **Message Content Intent**
 
 ### 2. Invite Bot
 
-1. Go to OAuth2 → URL Generator
-2. Select scopes: `bot`, `applications.commands`
-3. Select permissions: `Send Messages`, `Attach Files`, `Embed Links`, `Use Slash Commands`
-4. Copy the generated URL and open it to invite the bot
+OAuth2 → URL Generator:
+- Scopes: `bot`, `applications.commands`
+- Permissions: `Send Messages`, `Attach Files`, `Embed Links`
 
-### 3. Install & Run
+### 3. Get Instagram Data
 
-See [Development Setup](#development-setup) below for nix-shell or manual installation.
+1. Instagram → Settings → Accounts Center
+2. Your information and permissions → Download your information
+3. Select account → Download or transfer information
+4. Some of your information → **Followers and following**
+5. Download to device → **CSV format**
 
-## How to Export Instagram Data
+## Development
 
-1. Open Instagram app or website
-2. Go to Settings → Your Activity → Download Your Information
-3. Select "Some of your information"
-4. Choose "Followers and following"
-5. Select format: **CSV**
-6. Download and upload the CSV file to Discord
-
-## Quick Start (DM the Bot)
-
-Once the bot is running, you can DM it directly:
-
-1. Find the bot and click to open a DM
-2. Say `hi` or `help` to see what it can do
-3. **Just drop your CSV file** - the bot automatically processes it!
-4. Type `stats`, `changes`, or `history` for quick info
-
-## Project Structure
-
-```
-ig-discord/
-├── bot.py           # Main Discord bot
-├── database.py      # SQLite database operations
-├── csv_parser.py    # CSV parsing utilities
-├── plotting.py      # Matplotlib visualizations
-├── requirements.txt # Python dependencies
-├── shell.nix        # Nix development environment
-├── Dockerfile       # Container configuration
-├── docker-compose.yml # Local Docker deployment
-├── DEPLOY_GCP.md    # GCP deployment guide
-├── .env.example     # Environment template
-└── README.md        # This file
-```
-
-## Development Setup
-
-### Option 1: Nix Shell (Recommended)
-
-If you have [Nix](https://nixos.org/download.html) installed:
+### Nix Shell (Recommended)
 
 ```bash
-# Enter the development environment
 nix-shell
-
-# Everything is ready! Run the bot:
-bot   # or: python bot.py
 ```
 
-The nix shell includes:
-- Python 3.11 with all dependencies
-- Neovim with custom config (auto-downloaded)
-- Docker & docker-compose
-- Git tools (lazygit, etc.)
+Includes Python 3.11, all dependencies, Neovim, Docker, lazygit.
 
-**Aliases available in nix-shell:**
+**Aliases:**
 ```bash
-bot       # Run the Discord bot
-nvim      # Neovim with custom config
+bot       # Run bot
+nvim      # Neovim with config
 lg        # LazyGit
 dcup      # docker-compose up -d
 dcdown    # docker-compose down
 dclogs    # docker-compose logs -f
 ```
 
-### Option 2: Manual Setup
+### Manual
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure environment
 cp .env.example .env
-# Edit .env and add your Discord bot token
-
-# Run the bot
 python bot.py
 ```
 
 ## Deployment
 
-1. Instagram → Settings → Your Activity → Download Your Information
-2. Select "Followers and following" → Format: **CSV**
-3. Upload the CSV to the bot
+### Docker
 
-## Usage
 ```bash
-# With nix-shell
-nix-shell
-bot
-
-# With Docker
 docker-compose up -d
 docker-compose logs -f
 ```
 
-## Data Storage
+### GCP
 
-All data stored in `follower_data.db` (SQLite), isolated per user.
+See [DEPLOY_GCP.md](DEPLOY_GCP.md) for:
+- Google Compute Engine (free tier)
+- Cloud Run
+- GKE
+
+## Project Structure
+
+```
+ig-discord/
+├── bot.py              # Discord bot
+├── database.py         # SQLite operations
+├── csv_parser.py       # CSV parsing
+├── plotting.py         # Matplotlib charts
+├── shell.nix           # Nix environment
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── .env.example
+```
 
 ## License
 
