@@ -1,6 +1,6 @@
 # IG-tribbles (dribbles)
 
-A Discord bot to track your followers
+A Discord bot to check your instagram 
 
 ## Quick Start
 
@@ -45,76 +45,3 @@ python bot.py
 - `stats` / `changes` / `history`
 - `hi` or `help` for instructions
 
-## Setup
-
-### 1. Create Discord Bot
-
-1. [Discord Developer Portal](https://discord.com/developers/applications) → New Application
-2. Bot → Add Bot → Copy token
-3. Enable **Message Content Intent**
-
-### 2. Invite Bot
-
-OAuth2 → URL Generator:
-- Scopes: `bot`, `applications.commands`
-- Permissions: `Send Messages`, `Attach Files`, `Embed Links`
-
-### 3. Get Instagram Data
-
-1. Instagram → Settings → Accounts Center
-2. Your information and permissions → Download your information
-3. Select account → Download or transfer information
-4. Some of your information → **Followers and following**
-5. Download to device → **CSV format**
-
-## Development
-
-### Nix Shell (Recommended)
-
-```bash
-nix-shell
-```
-
-Includes Python 3.11, all dependencies, Neovim, Docker, lazygit.
-
-**Aliases:**
-```bash
-bot       # Run bot
-nvim      # Neovim with config
-lg        # LazyGit
-dcup      # docker-compose up -d
-dcdown    # docker-compose down
-dclogs    # docker-compose logs -f
-```
-
-### Manual
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env
-python bot.py
-```
-
-## Deployment
-
-### Docker
-
-```bash
-docker-compose up -d
-docker-compose logs -f
-```
-
-## Project Structure
-
-```
-ig-discord/
-├── bot.py              # Discord bot
-├── database.py         # SQLite operations
-├── csv_parser.py       # CSV parsing
-├── plotting.py         # Matplotlib charts
-├── shell.nix           # Nix environment
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-└── .env.example
-```
